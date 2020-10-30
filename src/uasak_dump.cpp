@@ -1,10 +1,13 @@
 #include <iostream>
+#include <fstream>
 
 #include <boost/program_options.hpp>
 
 #include <UANodeSet.hxx>
 
 #include <LogIt.h>
+
+#include "AddressSpaceVisitor.hxx"
 
 /* From open62541-compat or UA-SDK */
 #include <uaclient/uaclientsdk.h>
@@ -62,13 +65,44 @@ std::string stringifyNodeId (const UaNodeId& id)
 	}
 }
 
+class XmlDumpingVisitor : public AddressSpaceVisitor
+{
+public:
+	XmlDumpingVisitor(UANodeSet::UANodeSet& xmlDom) :
+		m_xmlDom(xmlDom)
+	{}
+
+	void visitingObject (
+			const UaExpandedNodeId& id,
+			const UaString&         browseName) override
+	{
+		LOG(Log::INF) << "Visiting object, the id is: " << id.nodeId().toFullString().toUtf8();
+    	UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
+    	UANodeSet::QualifiedName xmlBrowseName (browseName.toUtf8());
+    	m_xmlDom.UAObject().push_back(UANodeSet::UAObject(xmlNodeId, xmlBrowseName));
+
+	}
+
+	virtual void visitingVariable (
+			const UaExpandedNodeId& id,
+			const UaString&         browseName) override
+	{
+		LOG(Log::INF) << "Visiting variable, the id is: " << id.nodeId().toFullString().toUtf8();
+		UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
+		UANodeSet::QualifiedName xmlBrowseName (browseName.toUtf8());
+		m_xmlDom.UAVariable().push_back(UANodeSet::UAVariable(xmlNodeId, xmlBrowseName));
+	}
+private:
+	UANodeSet::UANodeSet& m_xmlDom;
+};
+
 void browse_recurse(
     Options    options,
     UaSession& session,
     ServiceSettings serviceSettings,
     UaNodeId n0,
     VisitedNodesType& visitedNodes,
-	UANodeSet::UANodeSet* document)
+	AddressSpaceVisitor& visitor)
 {
 
     visitedNodes.push_back(n0);
@@ -99,14 +133,23 @@ void browse_recurse(
             continue;
         }
 
-    	UANodeSet::NodeId xmlNodeId (stringifyNodeId(rd.NodeId.nodeId()));
-    	UANodeSet::QualifiedName browseName (rd.BrowseName.toUtf8());
-    	document->UAObject().push_back(UANodeSet::UAObject(xmlNodeId, browseName));
-
+        switch (rd.NodeClass)
+        {
+			case OpcUa_NodeClass_Object:
+			{
+				visitor.visitingObject(rd.NodeId, rd.BrowseName);
+			};
+			break;
+			case OpcUa_NodeClass_Variable:
+			{
+				visitor.visitingVariable(rd.NodeId, rd.BrowseName);
+			}
+			break;
+        }
 
         if (std::find(std::begin(visitedNodes), std::end(visitedNodes), targetNodeId) == std::end(visitedNodes))
         {
-            browse_recurse(options, session, serviceSettings, referenceDescriptions[i].NodeId.nodeId(), visitedNodes, document);
+            browse_recurse(options, session, serviceSettings, referenceDescriptions[i].NodeId.nodeId(), visitedNodes, visitor);
         }
     }
 
@@ -120,18 +163,7 @@ int main (int argc, char* argv[])
 
 	UANodeSet::UANodeSet nodeSetDocument;
 
-	UANodeSet::NodeId n ("i=1000;ns=2");
-	UANodeSet::QualifiedName browseName ("bingo!");
-
-
-
-	//nodeSetDocument.UAObject().push_back(UANodeSet::UAObject(n, browseName));
-
-
-
-
-
-    Log::initializeLogging(Log::DBG);
+    Log::initializeLogging(Log::INF);
 
     Options options (parse_program_options(argc, argv));
     std::cout << "will connect to the following endpoint: " << options.endpoint_url << std::endl;
@@ -158,10 +190,13 @@ int main (int argc, char* argv[])
 
     VisitedNodesType visitedNodes;
 
-    browse_recurse(options, session, defaultServiceSettings, objectsFolder, visitedNodes, &nodeSetDocument);
+    XmlDumpingVisitor visitor (nodeSetDocument);
+
+    browse_recurse(options, session, defaultServiceSettings, objectsFolder, visitedNodes, visitor);
 
     LOG(Log::INF) << "In total visited " << visitedNodes.size() << " nodes";
 
-	UANodeSet::UANodeSet_ (std::cout, nodeSetDocument, nsMap);
+    std::ofstream xml_file ("out.xml");
+	UANodeSet::UANodeSet_ (xml_file, nodeSetDocument, nsMap);
 
 }
