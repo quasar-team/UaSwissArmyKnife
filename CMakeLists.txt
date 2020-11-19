@@ -28,3 +28,6 @@ add_executable (uasak_dump
 
 target_link_libraries(uasak_browse -lopen62541-compat -lLogIt -lboost_program_options)
 target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lboost_program_options -lxerces-c)
+
+install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION bin)
+
