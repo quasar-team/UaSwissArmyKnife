@@ -57,9 +57,9 @@ std::string stringifyNodeId (const UaNodeId& id)
 	switch (id.identifierType())
 	{
 	case IdentifierType::OpcUa_IdentifierType_Numeric:
-		return "i=" + std::to_string(id.identifierNumeric());
+		return "ns=" + std::to_string(id.namespaceIndex()) + ";i=" + std::to_string(id.identifierNumeric());
 	case IdentifierType::OpcUa_IdentifierType_String:
-		return "s=" + id.identifierString().toUtf8();
+		return "ns=" + std::to_string(id.namespaceIndex()) + ";s=" + id.identifierString().toUtf8();
 	default:
 		throw std::runtime_error("This identifier type is not yet implemented -- fixme!");
 	}
