@@ -23,6 +23,7 @@ struct Options
     int         publishing_interval;
     int         sampling_interval;
     bool        skip_ns0;
+    std::string fileName;
 };
 
 
@@ -36,7 +37,8 @@ Options parse_program_options(int argc, char* argv[])
     desc.add_options()
     ("help,h",           "help")
     ("endpoint_url",     po::value<std::string>(&options.endpoint_url)->default_value("opc.tcp://127.0.0.1:4841"), "If you are looking for the endpoint address, note it is often printed by OPC-UA servers when they start up")
-    ("skip_ns0",         po::value<bool>(&options.skip_ns0)->default_value(true), "Don't follow references to ns0");
+    ("skip_ns0",         po::value<bool>(&options.skip_ns0)->default_value(true), "Don't follow references to ns0")
+    ("out,o",            po::value<std::string>(&options.fileName)->default_value("dump.xml"), "File name to which the dump should be saved");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -193,10 +195,13 @@ int main (int argc, char* argv[])
     XmlDumpingVisitor visitor (nodeSetDocument);
 
     browse_recurse(options, session, defaultServiceSettings, objectsFolder, visitedNodes, visitor);
+    session.disconnect(defaultServiceSettings, OpcUa_True);
 
     LOG(Log::INF) << "In total visited " << visitedNodes.size() << " nodes";
 
-    std::ofstream xml_file ("out.xml");
+    std::ofstream xml_file (options.fileName);
 	UANodeSet::UANodeSet_ (xml_file, nodeSetDocument, nsMap);
+
+    LOG(Log::INF) << "The nodeset file was dumped (name: " << options.fileName << ")";
 
 }
