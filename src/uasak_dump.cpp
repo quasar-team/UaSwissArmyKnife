@@ -82,6 +82,7 @@ public:
     	UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
     	UANodeSet::QualifiedName xmlBrowseName (browseName.toUtf8());
     	m_xmlDom.UAObject().push_back(UANodeSet::UAObject(xmlNodeId, xmlBrowseName));
+        //m_xmlDom.UAObject().back().ReleaseStatus() = "";
 
 	}
 

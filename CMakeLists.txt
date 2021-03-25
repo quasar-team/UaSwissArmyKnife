@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/UANodeSet.cxx ${PROJECT_BINARY_DIR}/UANodeSet.hxx
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMAND xsdcxx cxx-tree --std c++11 --generate-serialization --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet --root-element UANodeSet --output-dir ${PROJECT_BINARY_DIR} nodeset_xsd/UANodeSet.xsd
+        COMMAND xsdcxx cxx-tree --std c++11 --generate-serialization --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet --omit-default-attributes --root-element UANodeSet --output-dir ${PROJECT_BINARY_DIR} nodeset_xsd/UANodeSet.xsd
         DEPENDS ${PROJECT_SOURCE_DIR}/nodeset_xsd/UANodeSet.xsd
 )
 
@@ -30,4 +30,3 @@ target_link_libraries(uasak_browse -lopen62541-compat -lLogIt -lboost_program_op
 target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lboost_program_options -lxerces-c)
 
 install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION bin)
-
