@@ -8,6 +8,7 @@
 #include <LogIt.h>
 
 #include "AddressSpaceVisitor.hxx"
+#include "uasak_version.h"
 
 /* From open62541-compat or UA-SDK */
 #include <uaclient/uaclientsdk.h>
@@ -36,6 +37,7 @@ Options parse_program_options(int argc, char* argv[])
     po::options_description desc ("Usage");
     desc.add_options()
     ("help,h",           "help")
+    ("version",          "version")
     ("endpoint_url",     po::value<std::string>(&options.endpoint_url)->default_value("opc.tcp://127.0.0.1:4841"), "If you are looking for the endpoint address, note it is often printed by OPC-UA servers when they start up")
     ("skip_ns0",         po::value<bool>(&options.skip_ns0)->default_value(true), "Don't follow references to ns0")
     ("out,o",            po::value<std::string>(&options.fileName)->default_value("dump.xml"), "File name to which the dump should be saved");
@@ -47,6 +49,11 @@ Options parse_program_options(int argc, char* argv[])
     if (vm.count("help"))
     {
         std::cout << desc << std::endl;
+        exit(0);
+    }
+    if (vm.count("version"))
+    {
+        std::cout << UASAK_VERSION << std::endl;
         exit(0);
     }
 

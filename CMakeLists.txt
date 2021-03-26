@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 
+execute_process(COMMAND git describe --tags OUTPUT_VARIABLE git_describe_output OUTPUT_STRIP_TRAILING_WHITESPACE)
+message("NOTE: git describe returned ${git_describe_output}")
+file(WRITE ${PROJECT_BINARY_DIR}/uasak_version.h "#define UASAK_VERSION \"${git_describe_output}\"")
+
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/UANodeSet.cxx ${PROJECT_BINARY_DIR}/UANodeSet.hxx
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         COMMAND xsdcxx cxx-tree --std c++11 --generate-serialization --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet --omit-default-attributes --root-element UANodeSet --output-dir ${PROJECT_BINARY_DIR} nodeset_xsd/UANodeSet.xsd
