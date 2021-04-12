@@ -27,7 +27,8 @@ public:
 
 	virtual void visitingVariable (
 			const UaExpandedNodeId& id,
-			const UaString&         browseName) = 0;
+			const UaString&         browseName,
+			const std::list<ForwardReference> refs) = 0;
 
 	virtual ~AddressSpaceVisitor() {}
 };

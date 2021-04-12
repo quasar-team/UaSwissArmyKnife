@@ -115,7 +115,8 @@ public:
 
 	virtual void visitingVariable (
 			const UaExpandedNodeId& id,
-			const UaString&         browseName) override
+			const UaString&         browseName,
+            const std::list<ForwardReference> refs) override
 	{
 		LOG(Log::INF) << "Visiting variable, the id is: " << id.nodeId().toFullString().toUtf8();
 		UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
@@ -150,6 +151,9 @@ std::list<ForwardReference> browseReferencesFrom (
     	ReferenceDescription& rd (referenceDescriptions[i]);
         UaNodeId targetNodeId = rd.NodeId.nodeId();
         ForwardReference fwdref;
+        fwdref.to = targetNodeId;
+        fwdref.type = rd.ReferenceTypeId;
+        result.push_back(fwdref);
         
     }
 
@@ -197,15 +201,12 @@ void browse_recurse(
         {
 			case OpcUa_NodeClass_Object:
 			{
-                std::list<ForwardReference> refs;
-                ForwardReference ref;
-                refs.push_back(ref);
-				visitor.visitingObject(rd.NodeId, rd.BrowseName, refs);
+				visitor.visitingObject(rd.NodeId, rd.BrowseName, browseReferencesFrom(session, rd.NodeId.nodeId(), serviceSettings));
 			};
 			break;
 			case OpcUa_NodeClass_Variable:
 			{
-				visitor.visitingVariable(rd.NodeId, rd.BrowseName);
+				visitor.visitingVariable(rd.NodeId, rd.BrowseName, browseReferencesFrom(session, rd.NodeId.nodeId(), serviceSettings));
 			}
 			break;
             default: LOG(Log::INF) << "This node class is not supported: " << rd.NodeClass;
