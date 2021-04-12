@@ -43,8 +43,17 @@ Options parse_program_options(int argc, char* argv[])
     ("out,o",            po::value<std::string>(&options.fileName)->default_value("dump.xml"), "File name to which the dump should be saved");
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    try
+    {
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+    }
+    catch(const boost::exception& e)
+    {
+        std::cerr << "Unable to parse arguments; run with --help" << '\n';
+        exit(1);
+    }
+
 
     if (vm.count("help"))
     {
@@ -74,6 +83,7 @@ std::string stringifyNodeId (const UaNodeId& id)
 	}
 }
 
+
 class XmlDumpingVisitor : public AddressSpaceVisitor
 {
 public:
@@ -83,13 +93,23 @@ public:
 
 	void visitingObject (
 			const UaExpandedNodeId& id,
-			const UaString&         browseName) override
+			const UaString&         browseName,
+            const std::list<ForwardReference> refs) override
 	{
 		LOG(Log::INF) << "Visiting object, the id is: " << id.nodeId().toFullString().toUtf8();
     	UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
     	UANodeSet::QualifiedName xmlBrowseName (browseName.toUtf8());
     	m_xmlDom.UAObject().push_back(UANodeSet::UAObject(xmlNodeId, xmlBrowseName));
-        //m_xmlDom.UAObject().back().ReleaseStatus() = "";
+        if (refs.size() > 0)
+        {
+            UANodeSet::ListOfReferences listOfRefs;
+            for (const ForwardReference& reference : refs)
+            {   
+                UANodeSet::Reference uans_reference (stringifyNodeId(reference.to), /* reftype*/ stringifyNodeId(reference.type) );
+                listOfRefs.Reference().push_back(uans_reference);
+            }
+            m_xmlDom.UAObject().back().References().set(listOfRefs);
+        }
 
 	}
 
@@ -105,6 +125,36 @@ public:
 private:
 	UANodeSet::UANodeSet& m_xmlDom;
 };
+
+std::list<ForwardReference> browseReferencesFrom (
+    UaSession&      session,
+    UaNodeId        startFrom,
+    ServiceSettings serviceSettings
+    )
+{
+    std::list<ForwardReference> result;
+
+    BrowseContext browseContext; // should come from the parent, actually.
+    UaByteString continuationPoint; // hope won't use it ;-)
+    UaReferenceDescriptions referenceDescriptions;
+
+    UaStatus status = session.browse(
+                        serviceSettings,
+                        startFrom,
+                        browseContext,
+                        continuationPoint,
+                        referenceDescriptions);
+
+    for (unsigned int i=0; i < referenceDescriptions.size(); i++)
+    {
+    	ReferenceDescription& rd (referenceDescriptions[i]);
+        UaNodeId targetNodeId = rd.NodeId.nodeId();
+        ForwardReference fwdref;
+        
+    }
+
+    return result;
+}
 
 void browse_recurse(
     Options    options,
@@ -147,7 +197,10 @@ void browse_recurse(
         {
 			case OpcUa_NodeClass_Object:
 			{
-				visitor.visitingObject(rd.NodeId, rd.BrowseName);
+                std::list<ForwardReference> refs;
+                ForwardReference ref;
+                refs.push_back(ref);
+				visitor.visitingObject(rd.NodeId, rd.BrowseName, refs);
 			};
 			break;
 			case OpcUa_NodeClass_Variable:
@@ -155,6 +208,7 @@ void browse_recurse(
 				visitor.visitingVariable(rd.NodeId, rd.BrowseName);
 			}
 			break;
+            default: LOG(Log::INF) << "This node class is not supported: " << rd.NodeClass;
         }
 
         if (std::find(std::begin(visitedNodes), std::end(visitedNodes), targetNodeId) == std::end(visitedNodes))

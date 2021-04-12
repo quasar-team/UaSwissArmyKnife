@@ -10,12 +10,20 @@
 
 #include <uaexpandednodeid.h>
 
+struct ForwardReference
+{
+    UaNodeId to;
+    UaNodeId type;
+};
+
+
 class AddressSpaceVisitor
 {
 public:
 	virtual void visitingObject (
 			const UaExpandedNodeId& id,
-			const UaString&         browseName) = 0;
+			const UaString&         browseName,
+			const std::list<ForwardReference> refs) = 0;
 
 	virtual void visitingVariable (
 			const UaExpandedNodeId& id,
