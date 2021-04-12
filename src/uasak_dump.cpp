@@ -209,6 +209,15 @@ void browse_recurse(
 				visitor.visitingVariable(rd.NodeId, rd.BrowseName, browseReferencesFrom(session, rd.NodeId.nodeId(), serviceSettings));
 			}
 			break;
+            case OpcUa_NodeClass_Method:
+            {
+                LOG(Log::WRN) << "Methods not yet supported!";
+            }
+            break;
+            case OpcUa_NodeClass_ObjectType:
+            {
+                LOG(Log::WRN) << "ObjectTypes not yet supported!";
+            }
             default: LOG(Log::INF) << "This node class is not supported: " << rd.NodeClass;
         }
 
