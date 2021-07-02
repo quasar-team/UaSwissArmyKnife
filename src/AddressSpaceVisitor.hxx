@@ -9,6 +9,8 @@
 #define SRC_ADDRESSSPACEVISITOR_HXX_
 
 #include <uaexpandednodeid.h>
+#include <map>
+#include <opcua_attributes.h>
 
 struct ForwardReference
 {
@@ -28,7 +30,8 @@ public:
 	virtual void visitingVariable (
 			const UaExpandedNodeId& id,
 			const UaString&         browseName,
-			const std::list<ForwardReference> refs) = 0;
+			const std::list<ForwardReference> refs,
+			const std::map<Attributes, std::string> optionalAttributes = {}) = 0;
 
 	virtual ~AddressSpaceVisitor() {}
 };

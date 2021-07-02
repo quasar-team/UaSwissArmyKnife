@@ -8,6 +8,9 @@
 #include <LogIt.h>
 
 #include "AddressSpaceVisitor.hxx"
+
+#include <algorithm>
+
 #include "uasak_version.h"
 
 /* From open62541-compat or UA-SDK */
@@ -116,12 +119,25 @@ public:
 	virtual void visitingVariable (
 			const UaExpandedNodeId& id,
 			const UaString&         browseName,
-            const std::list<ForwardReference> refs) override
+            const std::list<ForwardReference> refs,
+            const std::map<Attributes, std::string> optionalAttributes) override
 	{
 		LOG(Log::INF) << "Visiting variable, the id is: " << id.nodeId().toFullString().toUtf8();
 		UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
 		UANodeSet::QualifiedName xmlBrowseName (browseName.toUtf8());
 		m_xmlDom.UAVariable().push_back(UANodeSet::UAVariable(xmlNodeId, xmlBrowseName));
+        for ( const auto& [key, value] : optionalAttributes)
+        {
+            if (key == Attributes::OpcUa_Attributes_DataType)
+                m_xmlDom.UAVariable().back().DataType(value);
+            else if (key == Attributes::OpcUa_Attributes_ValueRank)
+                m_xmlDom.UAVariable().back().ValueRank(std::stoi(value));
+            else if (key == Attributes::OpcUa_Attributes_AccessLevel)
+                m_xmlDom.UAVariable().back().AccessLevel(std::stoi(value));
+            else
+                throw std::logic_error("Can't map this key");
+        }
+        
 	}
 private:
 	UANodeSet::UANodeSet& m_xmlDom;
@@ -159,6 +175,65 @@ std::list<ForwardReference> browseReferencesFrom (
 
     return result;
 }
+
+void readMultiple(
+    UaSession&                  session,
+    ServiceSettings &           serviceSettings,
+    OpcUa_Double                maxAge,
+    OpcUa_TimestampsToReturn    timeStamps,
+    const UaReadValueIds &      nodesToRead,
+    UaDataValues &              values,
+    UaDiagnosticInfos &         diagnosticInfos  )
+{
+    for (unsigned int i=0; i<nodesToRead.size(); i++)
+    {
+        UaReadValueIds id;
+        id.create(1);
+        id[0] = nodesToRead[i];
+        UaDataValues output;
+        output.create(1);
+        session.read(serviceSettings, maxAge, timeStamps, id, output, diagnosticInfos);
+        values[i] = output[0];
+    }
+}
+
+void getVariableStandardAttrs (
+    UaSession& session,
+    UaNodeId   nodeId,
+    ServiceSettings serviceSettings,
+    std::vector<Attributes> attributes,
+    UaDataValues& output
+    
+    )
+{
+
+    //UaNodesToRead
+    UaReadValueIds ids;
+    ids.create(attributes.size());
+    for (unsigned int i = 0; i < attributes.size(); i++)
+    {
+        ids[i].NodeId = nodeId;
+        ids[i].AttributeId = attributes[i];
+    }
+
+    // output
+    output.create(attributes.size());
+    
+    UaDiagnosticInfos diagInfos;
+
+    readMultiple(session, serviceSettings, 0, OpcUa_TimestampsToReturn_Both, ids,  output, diagInfos);
+
+    try
+    {
+        LOG(Log::INF) << "Read std attrs: ";
+        for (unsigned int i=0; i < output.size(); i++)
+            LOG(Log::INF) << output[i].Value.toString().toUtf8() << ", FS: " << output[i].Value.toFullString().toUtf8();
+    }
+    catch (...)
+    {
+        LOG(Log::INF) << "Can't print it";
+    }
+} 
 
 void browse_recurse(
     Options    options,
@@ -206,7 +281,22 @@ void browse_recurse(
 			break;
 			case OpcUa_NodeClass_Variable:
 			{
-				visitor.visitingVariable(rd.NodeId, rd.BrowseName, browseReferencesFrom(session, rd.NodeId.nodeId(), serviceSettings));
+                // get standard attributes
+                UaDataValues attributes;
+                std::vector<Attributes> optionalAttributesToQuery {OpcUa_Attributes_DataType,
+                    OpcUa_Attributes_ValueRank,
+                    OpcUa_Attributes_AccessLevel};
+                getVariableStandardAttrs(session, rd.NodeId.nodeId(), serviceSettings, optionalAttributesToQuery, attributes);
+                std::map<Attributes, std::string> optionalAttrsValues;
+                for ( unsigned int i = 0; i<optionalAttributesToQuery.size(); i++)
+                {
+                    optionalAttrsValues.insert({optionalAttributesToQuery[i], attributes[i].Value.toString().toUtf8()});
+                }
+                // std::map<Attributes, std::string> optionalAttrs = {{OpcUa_Attributes_DataType, attributes[0].Value.toString().toUtf8()}};
+                // std::string dataType (attributes[0].Value.toString().toUtf8());
+                // std::string valueRank (attributes[1].Value.toString().toUtf8());
+                // std::string accessLevel (attributes[2].Value.toString().toUtf8());
+				visitor.visitingVariable(rd.NodeId, rd.BrowseName, browseReferencesFrom(session, rd.NodeId.nodeId(), serviceSettings), optionalAttrsValues);
 			}
 			break;
             case OpcUa_NodeClass_Method:
