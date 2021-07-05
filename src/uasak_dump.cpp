@@ -139,6 +139,28 @@ public:
         }
         
 	}
+
+    virtual void visitingMethod (
+		const UaExpandedNodeId& id,
+		const UaString&         browseName,
+		const std::list<ForwardReference> refs,
+		const std::map<Attributes, std::string> optionalAttributes = {})
+    {
+        LOG(Log::INF) << "Visiting method, the id is: " << id.nodeId().toFullString().toUtf8();
+        UANodeSet::NodeId xmlNodeId (stringifyNodeId(id.nodeId()));
+		UANodeSet::QualifiedName xmlBrowseName (browseName.toUtf8());
+        m_xmlDom.UAMethod().push_back(UANodeSet::UAMethod(xmlNodeId, xmlBrowseName));
+        if (refs.size() > 0)
+        {
+            UANodeSet::ListOfReferences listOfRefs;
+            for (const ForwardReference& reference : refs)
+            {   
+                UANodeSet::Reference uans_reference (stringifyNodeId(reference.to), /* reftype*/ stringifyNodeId(reference.type) );
+                listOfRefs.Reference().push_back(uans_reference);
+            }
+            m_xmlDom.UAObject().back().References().set(listOfRefs);
+        }
+    }
 private:
 	UANodeSet::UANodeSet& m_xmlDom;
 };
@@ -283,7 +305,8 @@ void browse_recurse(
 			{
                 // get standard attributes
                 UaDataValues attributes;
-                std::vector<Attributes> optionalAttributesToQuery {OpcUa_Attributes_DataType,
+                std::vector<Attributes> optionalAttributesToQuery {
+                    OpcUa_Attributes_DataType,
                     OpcUa_Attributes_ValueRank,
                     OpcUa_Attributes_AccessLevel};
                 getVariableStandardAttrs(session, rd.NodeId.nodeId(), serviceSettings, optionalAttributesToQuery, attributes);
@@ -301,7 +324,7 @@ void browse_recurse(
 			break;
             case OpcUa_NodeClass_Method:
             {
-                LOG(Log::WRN) << "Methods not yet supported!";
+                visitor.visitingMethod(rd.NodeId, rd.BrowseName, browseReferencesFrom(session, rd.NodeId.nodeId(), serviceSettings));
             }
             break;
             case OpcUa_NodeClass_ObjectType:

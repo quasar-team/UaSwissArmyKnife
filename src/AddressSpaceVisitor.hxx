@@ -33,6 +33,12 @@ public:
 			const std::list<ForwardReference> refs,
 			const std::map<Attributes, std::string> optionalAttributes = {}) = 0;
 
+	virtual void visitingMethod (
+		const UaExpandedNodeId& id,
+		const UaString&         browseName,
+		const std::list<ForwardReference> refs,
+		const std::map<Attributes, std::string> optionalAttributes = {}) = 0;
+
 	virtual ~AddressSpaceVisitor() {}
 };
 
