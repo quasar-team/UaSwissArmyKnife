@@ -30,7 +30,12 @@ add_executable (uasak_dump
 	${PROJECT_BINARY_DIR}/UANodeSet.cxx
 )
 
+add_executable (uasak_browse_read
+	src/uasak_browse_read.cpp
+)
+
 target_link_libraries(uasak_browse -lopen62541-compat -lLogIt -lboost_program_options)
 target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lboost_program_options -lxerces-c)
+target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt -lboost_program_options)
 
 install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION bin)
