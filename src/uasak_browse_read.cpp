@@ -21,6 +21,8 @@ struct Options
     int         publishing_interval;
     int         sampling_interval;
     bool        skip_ns0;
+    std::string output_fn;
+    std::string log_level_str;
 };
 
 
@@ -35,7 +37,9 @@ Options parse_program_options(int argc, char* argv[])
     ("help,h",           "help")
     ("version",          "version")
     ("endpoint_url",     po::value<std::string>(&options.endpoint_url)->default_value("opc.tcp://127.0.0.1:4841"), "If you are looking for the endpoint address, note it is often printed by OPC-UA servers when they start up")
-    ("skip_ns0",         po::value<bool>(&options.skip_ns0)->default_value(true), "Don't follow references to ns0");
+    ("skip_ns0",         po::value<bool>(&options.skip_ns0)->default_value(true), "Don't follow references to ns0")
+    ("output",           po::value<std::string>(&options.output_fn)->default_value("output.txt"), "Where to dump the results")
+    ("--log_level,-t",   po::value<std::string>(&options.log_level_str)->default_value("INF"), "LogIt log level, one of INF, ERR, TRC, WRN, DBG");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -104,10 +108,15 @@ void browse_recurse(
                 values,
                 infos);
 
-            outFile << "node=" << targetNodeId.identifierString().toUtf8() << " ";
+            outFile << "node=";
+            if (targetNodeId.identifierType() == OpcUa_IdentifierType_String)
+                outFile << targetNodeId.identifierString().toUtf8() << " ";
+            else
+                outFile << targetNodeId.toFullString().toUtf8() << " ";
             if (status.isGood())
             {
-
+                outFile << "value=" << values[0].Value.toString().toUtf8();
+                 
             }
             else
                 outFile << "not_good";
@@ -128,9 +137,18 @@ void browse_recurse(
 
 int main (int argc, char* argv[])
 {
-    Log::initializeLogging(Log::DBG);
+   
 
     Options options (parse_program_options(argc, argv));
+    Log::LOG_LEVEL level;
+    if (!Log::logLevelFromString(options.log_level_str, level))
+    {
+        std::cout << "Specified log level is invalid" << std::endl;
+        return 1;
+    }
+
+    Log::initializeLogging(level);
+
     std::cout << "will connect to the following endpoint: " << options.endpoint_url << std::endl;
 
     SessionConnectInfo      connectInfo;
@@ -151,7 +169,7 @@ int main (int argc, char* argv[])
 
     LOG(Log::INF) << "Session opened ;-)";
 
-    std::ofstream outputFile ("output.txt");
+    std::ofstream outputFile (options.output_fn);
 
     UaNodeId objectsFolder (85, 0);
 
