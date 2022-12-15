@@ -62,4 +62,6 @@ target_link_libraries(uasak_browse -lopen62541-compat -lLogIt ${BOOST_LIBS})
 target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lxerces-c ${BOOST_LIBS})
 target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt ${BOOST_LIBS})
 
-install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION bin)
+install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+
+include(CPack)
