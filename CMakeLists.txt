@@ -22,20 +22,28 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/UANodeSet.cxx ${PROJECT_BINARY_D
         DEPENDS ${PROJECT_SOURCE_DIR}/nodeset_xsd/UANodeSet.xsd
 )
 
+find_package( Boost REQUIRED COMPONENTS regex program_options )
+if(NOT Boost_FOUND)
+    message(FATAL_ERROR "Failed to find boost installation")
+else()
+    message(STATUS "Found system boost, version [${Boost_VERSION}], include dir [${Boost_INCLUDE_DIRS}] library dir [${Boost_LIBRARY_DIRS}], libs [${Boost_LIBRARIES}]")
+    set(BOOST_HEADERS ${Boost_INCLUDE_DIRS})
+    set(BOOST_LIBS ${Boost_LIBRARIES})
+    set(BOOST_LIB_DIRECTORIES ${Boost_LIBRARY_DIRS})
+endif()
 
 include_directories(
-	/afs/cern.ch/user/p/pnikiel/PrepareEcosystem/PrepareEcosystem/deploy/LogIt/include
-	/afs/cern.ch/user/p/pnikiel/PrepareEcosystem/PrepareEcosystem/deploy/open62541-compat/include
 	build/deploy/open62541-compat/include
 	build/deploy/LogIt/include
+	${BOOST_HEADERS}
 	${PROJECT_BINARY_DIR}
 )
 
 link_directories(
-	/afs/cern.ch/user/p/pnikiel/PrepareEcosystem/PrepareEcosystem/deploy/LogIt/lib
-	/afs/cern.ch/user/p/pnikiel/PrepareEcosystem/PrepareEcosystem/deploy/open62541-compat/lib
 	build/deploy/open62541-compat/lib
-	build/deploy/LogIt/lib)
+	build/deploy/LogIt/lib
+	${Boost_LIBRARY_DIRS}
+)
 
 add_executable (uasak_browse
 	src/uasak_browse.cpp
@@ -46,13 +54,14 @@ add_executable (uasak_dump
 	${PROJECT_BINARY_DIR}/UANodeSet.cxx
 )
 
-target_link_libraries(uasak_browse -lopen62541-compat -lLogIt -lboost_program_options)
-target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lboost_program_options -lxerces-c)
+add_executable (uasak_browse_read
+	src/uasak_browse_read.cpp
+)
+
+target_link_libraries(uasak_browse -lopen62541-compat -lLogIt ${BOOST_LIBS})
+target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lxerces-c ${BOOST_LIBS})
+target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt ${BOOST_LIBS})
 
 install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
 
 include(CPack)
-
-
-
-
