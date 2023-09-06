@@ -1,1 +1,0 @@
-/usr/bin/c++       CMakeFiles/subscribe_to_all.dir/main.o  -o subscribe_to_all  -L/opt/OpcUaToolkit-static-1.5.5/lib -rdynamic -luaclient -luabase -luapki -lxmlparser -luastack -lcrypto -lxml2 -lboost_program_options-mt -lpthread -Wl,-rpath,/opt/OpcUaToolkit-static-1.5.5/lib 

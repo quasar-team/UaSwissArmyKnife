@@ -1,6 +1,0 @@
-NS2|String|SR1_PSU_BUS.ELMB_63.CANV_3
-** Variable SR1_PSU_BUS.ELMB_63.CANV_3 MonitoredItemId = 973
-  724 node=              SR1_PSU_BUS.ELMB_63.CANV_3  value=                                      20 ts_source=2023-09-05 16:13:02.968  ts_server= 2023-09-05 16:13:05.278 
-    7 node=              SR1_PSU_BUS.ELMB_63.CANV_3  value=                                      50 ts_source=2023-09-05 16:13:25.385  ts_server= 2023-09-05 16:13:25.385 
-    9 node=              SR1_PSU_BUS.ELMB_63.CANV_3  value=                                      60 ts_source=2023-09-05 16:13:35.388  ts_server= 2023-09-05 16:13:35.388 
-    9 node=              SR1_PSU_BUS.ELMB_63.CANV_3  value=                                     100 ts_source=2023-09-05 16:13:45.391  ts_server= 2023-09-05 16:13:45.391 
