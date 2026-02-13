@@ -1,0 +1,47 @@
+variables:
+  ALMA_LATEST_IMAGE: "gitlab-registry.cern.ch/quasar-team/images/alma-10-build:latest"
+  PACKAGE_NAME_RPM: "uaswissarmyknife-rpm"
+
+stages:
+  - unstagged
+
+Compile on Linux:
+  stage: unstagged
+  image: $ALMA_LATEST_IMAGE
+  script:
+    - cmake -S . -B build -DSTANDALONE_BUILD=ON -DCMAKE_BUILD_TYPE=Release
+    - cmake --build build --config Release
+  artifacts:
+    paths:
+      - build/
+    when: always
+
+Package RPM on Linux:
+  stage: unstagged
+  image: $ALMA_LATEST_IMAGE
+  needs:
+    - job: Compile on Linux
+      artifacts: true
+  script:
+    - cpack --config build/CPackConfig.cmake -G RPM -B build/packages
+    - ls -lh build/packages
+  artifacts:
+    paths:
+      - build/packages/*.rpm
+    when: always
+
+Publish RPM to GitLab Package Registry:
+  stage: unstagged
+  image: $ALMA_LATEST_IMAGE
+  needs:
+    - job: Package RPM on Linux
+      artifacts: true
+  script:
+    - PACKAGE_VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+    - RPM_FILE="$(find build/packages -maxdepth 1 -type f -name '*.rpm' | head -n 1)"
+    - test -n "$RPM_FILE"
+    - |
+      curl --fail --show-error --location \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "${RPM_FILE}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME_RPM}/${PACKAGE_VERSION}/$(basename "${RPM_FILE}")"

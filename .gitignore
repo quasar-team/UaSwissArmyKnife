@@ -1,1 +1,6 @@
 SubscribeToAllCpp/build/
+.gitlab-ci-local
+build
+build-*
+.gitlab-ci-local
+.env

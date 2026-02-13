@@ -1,67 +1,136 @@
-cmake_minimum_required(VERSION 3.0)
-add_definitions(-std=c++11)
-execute_process(COMMAND git describe --tags OUTPUT_VARIABLE git_describe_output OUTPUT_STRIP_TRAILING_WHITESPACE)
-message("NOTE: git describe returned ${git_describe_output}")
-file(WRITE ${PROJECT_BINARY_DIR}/uasak_version.h "#define UASAK_VERSION \"${git_describe_output}\"")
+cmake_minimum_required(VERSION 3.30)
+project(UaSwissArmyKnife LANGUAGES C CXX)
 
-set(CPACK_PACKAGE_NAME "UaSwissArmyKnife" )
-set(CPACK_PACKAGE_VENDOR "CERN/ATLAS-DCS/pnikiel" )
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+option(STANDALONE_BUILD "Legacy compatibility option (no-op)" ON)
+
+include(FetchContent)
+
+execute_process(
+  COMMAND git describe --tags --always
+  OUTPUT_VARIABLE git_describe_output
+  RESULT_VARIABLE git_describe_result
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT git_describe_result EQUAL 0 OR git_describe_output STREQUAL "")
+  set(git_describe_output "0.0.0")
+endif()
+message(STATUS "git describe returned ${git_describe_output}")
+file(WRITE "${PROJECT_BINARY_DIR}/uasak_version.h" "#define UASAK_VERSION \"${git_describe_output}\"")
+
+set(CPACK_PACKAGE_NAME "UaSwissArmyKnife")
+set(CPACK_PACKAGE_VENDOR "CERN-QUASAR-TEAM")
 set(CPACK_GENERATOR "RPM")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/UaSwissArmyKnife")
-set(CPACK_RPM_PACKAGE_NAME "${CPACK_PACKAGE_NAME}" )
+set(CPACK_RPM_PACKAGE_NAME "${CPACK_PACKAGE_NAME}")
 
-string(REPLACE "." ";" versions_dot_sep "${git_describe_output}")
-list(GET versions_dot_sep 0 CPACK_PACKAGE_VERSION_MAJOR)
-list(GET versions_dot_sep 1 CPACK_PACKAGE_VERSION_MINOR)
-list(GET versions_dot_sep 2 CPACK_PACKAGE_VERSION_PATCH)
-
-
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/UANodeSet.cxx ${PROJECT_BINARY_DIR}/UANodeSet.hxx
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMAND xsdcxx cxx-tree --std c++11 --generate-serialization --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet --omit-default-attributes --root-element UANodeSet --output-dir ${PROJECT_BINARY_DIR} nodeset_xsd/UANodeSet.xsd
-        DEPENDS ${PROJECT_SOURCE_DIR}/nodeset_xsd/UANodeSet.xsd
-)
-
-find_package( Boost REQUIRED COMPONENTS regex program_options )
-if(NOT Boost_FOUND)
-    message(FATAL_ERROR "Failed to find boost installation")
+string(REGEX MATCH "([0-9]+)\\.([0-9]+)(\\.([0-9]+))?" _version_match "${git_describe_output}")
+if(_version_match)
+  set(CPACK_PACKAGE_VERSION_MAJOR "${CMAKE_MATCH_1}")
+  set(CPACK_PACKAGE_VERSION_MINOR "${CMAKE_MATCH_2}")
+  if(CMAKE_MATCH_4)
+    set(CPACK_PACKAGE_VERSION_PATCH "${CMAKE_MATCH_4}")
+  else()
+    set(CPACK_PACKAGE_VERSION_PATCH "0")
+  endif()
 else()
-    message(STATUS "Found system boost, version [${Boost_VERSION}], include dir [${Boost_INCLUDE_DIRS}] library dir [${Boost_LIBRARY_DIRS}], libs [${Boost_LIBRARIES}]")
-    set(BOOST_HEADERS ${Boost_INCLUDE_DIRS})
-    set(BOOST_LIBS ${Boost_LIBRARIES})
-    set(BOOST_LIB_DIRECTORIES ${Boost_LIBRARY_DIRS})
+  set(CPACK_PACKAGE_VERSION_MAJOR "0")
+  set(CPACK_PACKAGE_VERSION_MINOR "0")
+  set(CPACK_PACKAGE_VERSION_PATCH "0")
 endif()
 
-include_directories(
-	build/deploy/open62541-compat/include
-	build/deploy/LogIt/include
-	${BOOST_HEADERS}
-	${PROJECT_BINARY_DIR}
+if(DEFINED ENV{BOOST_HOME} AND NOT "$ENV{BOOST_HOME}" STREQUAL "")
+  set(BOOST_ROOT "$ENV{BOOST_HOME}")
+  list(PREPEND CMAKE_PREFIX_PATH "$ENV{BOOST_HOME}")
+  set(Boost_USE_STATIC_RUNTIME ON)
+  message(STATUS "Using BOOST_HOME from environment: $ENV{BOOST_HOME}")
+endif()
+
+find_package(Boost REQUIRED COMPONENTS regex program_options)
+find_program(XSDCXX_EXECUTABLE NAMES xsdcxx)
+
+if(DEFINED ENV{XERCES_C_HOME} AND NOT "$ENV{XERCES_C_HOME}" STREQUAL "")
+  list(PREPEND CMAKE_PREFIX_PATH "$ENV{XERCES_C_HOME}")
+  message(STATUS "Using XERCES_C_HOME from environment: $ENV{XERCES_C_HOME}")
+endif()
+
+find_package(XercesC QUIET)
+if(TARGET XercesC::XercesC)
+  set(UASAK_XERCES_TARGET XercesC::XercesC)
+else()
+  find_path(UASAK_XERCES_INCLUDE_DIR
+    NAMES xercesc/util/XercesDefs.hpp
+    HINTS
+      "$ENV{XERCES_C_HOME}/include"
+  )
+  find_library(UASAK_XERCES_LIBRARY
+    NAMES xerces-c
+    HINTS
+      "$ENV{XERCES_C_HOME}/lib"
+      "$ENV{XERCES_C_HOME}/lib64"
+  )
+  if(NOT UASAK_XERCES_INCLUDE_DIR OR NOT UASAK_XERCES_LIBRARY)
+    message(FATAL_ERROR "Failed to resolve Xerces-C. Set XERCES_C_HOME or provide a CMake package for XercesC.")
+  endif()
+  add_library(UASAK::XercesC UNKNOWN IMPORTED)
+  set_target_properties(UASAK::XercesC PROPERTIES
+    IMPORTED_LOCATION "${UASAK_XERCES_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${UASAK_XERCES_INCLUDE_DIR}"
+  )
+  set(UASAK_XERCES_TARGET UASAK::XercesC)
+endif()
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/PrepareOpen6Compat.cmake")
+set(LOGIT_INCLUDE "${LOGIT_INCLUDE_DIR}")
+if(NOT LOGIT_INCLUDE OR NOT EXISTS "${LOGIT_INCLUDE}")
+  message(FATAL_ERROR "Failed to resolve LogIt include directory from open62541-compat")
+endif()
+
+add_executable(uasak_browse src/uasak_browse.cpp)
+
+target_include_directories(uasak_browse PRIVATE
+  "${PROJECT_BINARY_DIR}"
+  ${UASAK_OPEN6COMPAT_INCLUDE_DIRS}
+  "${LOGIT_INCLUDE}"
+)
+target_link_libraries(uasak_browse PRIVATE
+  Open6Compat::open62541-compat
+  Boost::regex
+  Boost::program_options
 )
 
-link_directories(
-	build/deploy/open62541-compat/lib
-	build/deploy/LogIt/lib
-	${Boost_LIBRARY_DIRS}
-)
+if(XSDCXX_EXECUTABLE)
+  add_custom_command(
+    OUTPUT "${PROJECT_BINARY_DIR}/UANodeSet.cxx" "${PROJECT_BINARY_DIR}/UANodeSet.hxx"
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+    COMMAND "${XSDCXX_EXECUTABLE}" cxx-tree --std c++11 --generate-serialization
+            --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet
+            --omit-default-attributes --root-element UANodeSet
+            --output-dir "${PROJECT_BINARY_DIR}" nodeset_xsd/UANodeSet.xsd
+    DEPENDS "${PROJECT_SOURCE_DIR}/nodeset_xsd/UANodeSet.xsd"
+  )
 
-add_executable (uasak_browse
-	src/uasak_browse.cpp
-	)
+  add_executable(uasak_dump src/uasak_dump.cpp "${PROJECT_BINARY_DIR}/UANodeSet.cxx")
+  target_include_directories(uasak_dump PRIVATE
+    "${PROJECT_BINARY_DIR}"
+    ${UASAK_OPEN6COMPAT_INCLUDE_DIRS}
+    "${LOGIT_INCLUDE}"
+  )
+  target_link_libraries(uasak_dump PRIVATE
+    Open6Compat::open62541-compat
+    ${UASAK_XERCES_TARGET}
+    Boost::regex
+    Boost::program_options
+  )
+else()
+  message(WARNING "xsdcxx not found: target uasak_dump will not be built")
+endif()
 
-add_executable (uasak_dump
-	src/uasak_dump.cpp
-	${PROJECT_BINARY_DIR}/UANodeSet.cxx
-)
-
-add_executable (uasak_browse_read
-	src/uasak_browse_read.cpp
-)
-
-target_link_libraries(uasak_browse -lopen62541-compat -lLogIt ${BOOST_LIBS})
-target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lxerces-c ${BOOST_LIBS})
-target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt ${BOOST_LIBS})
-
-install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+install(TARGETS uasak_browse RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+if(TARGET uasak_dump)
+  install(TARGETS uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+endif()
 
 include(CPack)
