@@ -1,9 +1,4 @@
 set(SKIP_TESTS ON CACHE BOOL "Disable open62541-compat tests when built via UaSwissArmyKnife" FORCE)
-set("OPEN62541-COMPAT_BUILD_CONFIG_FILE"
-  "${CMAKE_CURRENT_LIST_DIR}/Open6CompatBuildConfig.cmake"
-  CACHE FILEPATH "Build config override for open62541-compat"
-  FORCE
-)
 
 FetchContent_Declare(
   Open6Compat
