@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(STANDALONE_BUILD "Legacy compatibility option (no-op)" ON)
 
 if(MSVC)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Release>:Release>")
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 include(FetchContent)
