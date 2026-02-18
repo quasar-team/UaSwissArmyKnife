@@ -49,7 +49,8 @@ Package ZIP on Windows:
   stage: unstagged
   image: $WIN2025_IMAGE
   tags:
-    - win2025-container  needs:
+    - win2025-container
+  needs:
     - job: Compile on Windows
       artifacts: true
   script:
