@@ -1,6 +1,6 @@
 variables:
   ALMA_LATEST_IMAGE: "gitlab-registry.cern.ch/quasar-team/images/alma-10-build:latest"
-  WIN2025_IMAGE: "gitlab-registry.cern.ch/quasar-team/images/win2025-build"
+  WIN2025_IMAGE: "gitlab-registry.cern.ch/quasar-team/images/win2025-build:latest"
   PACKAGE_NAME_RPM: "uaswissarmyknife-rpm"
   PACKAGE_NAME_ZIP: "uaswissarmyknife-zip"
 
