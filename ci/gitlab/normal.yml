@@ -1,6 +1,8 @@
 variables:
   ALMA_LATEST_IMAGE: "gitlab-registry.cern.ch/quasar-team/images/alma-10-build:latest"
+  WIN2025_IMAGE: "gitlab-registry.cern.ch/quasar-team/images/win2025-build"
   PACKAGE_NAME_RPM: "uaswissarmyknife-rpm"
+  PACKAGE_NAME_ZIP: "uaswissarmyknife-zip"
 
 stages:
   - unstagged
@@ -16,6 +18,17 @@ Compile on Linux:
       - build/
     when: always
 
+Compile on Windows:
+  stage: unstagged
+  image: $WIN2025_IMAGE
+  script:
+    - cmake -S . -B build-windows -DSTANDALONE_BUILD=ON -DCMAKE_BUILD_TYPE=Release
+    - cmake --build build-windows --config Release
+  artifacts:
+    paths:
+      - build-windows/
+    when: always
+
 Package RPM on Linux:
   stage: unstagged
   image: $ALMA_LATEST_IMAGE
@@ -28,6 +41,19 @@ Package RPM on Linux:
   artifacts:
     paths:
       - build/packages/*.rpm
+    when: always
+
+Package ZIP on Windows:
+  stage: unstagged
+  image: $WIN2025_IMAGE
+  needs:
+    - job: Compile on Windows
+      artifacts: true
+  script:
+    - cpack --config build-windows/CPackConfig.cmake -G ZIP -B build-windows/packages
+  artifacts:
+    paths:
+      - build-windows/packages/*.zip
     when: always
 
 Publish RPM to GitLab Package Registry:
@@ -45,3 +71,19 @@ Publish RPM to GitLab Package Registry:
         --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
         --upload-file "${RPM_FILE}" \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME_RPM}/${PACKAGE_VERSION}/$(basename "${RPM_FILE}")"
+
+Publish ZIP to GitLab Package Registry:
+  stage: unstagged
+  image: $ALMA_LATEST_IMAGE
+  needs:
+    - job: Package ZIP on Windows
+      artifacts: true
+  script:
+    - PACKAGE_VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+    - ZIP_FILE="$(find build-windows/packages -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+    - test -n "$ZIP_FILE"
+    - |
+      curl --fail --show-error --location \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "${ZIP_FILE}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME_ZIP}/${PACKAGE_VERSION}/$(basename "${ZIP_FILE}")"
