@@ -21,6 +21,8 @@ Compile on Linux:
 Compile on Windows:
   stage: unstagged
   image: $WIN2025_IMAGE
+  tags:
+    - win2025-container
   script:
     - cmake -S . -B build-windows -DSTANDALONE_BUILD=ON -DCMAKE_BUILD_TYPE=Release
     - cmake --build build-windows --config Release
@@ -46,7 +48,8 @@ Package RPM on Linux:
 Package ZIP on Windows:
   stage: unstagged
   image: $WIN2025_IMAGE
-  needs:
+  tags:
+    - win2025-container  needs:
     - job: Compile on Windows
       artifacts: true
   script:
