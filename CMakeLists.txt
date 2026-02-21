@@ -127,6 +127,10 @@ if(XSDCXX_EXECUTABLE)
     ${UASAK_OPEN6COMPAT_INCLUDE_DIRS}
     "${LOGIT_INCLUDE}"
   )
+  if(WIN32 AND DEFINED ENV{XSD_HOME} AND NOT "$ENV{XSD_HOME}" STREQUAL "")
+    target_include_directories(uasak_dump PRIVATE "$ENV{XSD_HOME}/include")
+    message(STATUS "Using XSD_HOME from environment: $ENV{XSD_HOME}")
+  endif()
   target_link_libraries(uasak_dump PRIVATE
     Open6Compat::open62541-compat
     ${UASAK_XERCES_TARGET}
