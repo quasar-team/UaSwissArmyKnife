@@ -6,10 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 option(STANDALONE_BUILD "Legacy compatibility option (no-op)" ON)
 
-if(MSVC)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
 include(FetchContent)
 
 execute_process(
@@ -53,7 +49,6 @@ endif()
 if(DEFINED ENV{BOOST_HOME} AND NOT "$ENV{BOOST_HOME}" STREQUAL "")
   set(BOOST_ROOT "$ENV{BOOST_HOME}")
   list(PREPEND CMAKE_PREFIX_PATH "$ENV{BOOST_HOME}")
-  set(Boost_USE_STATIC_RUNTIME ON)
   message(STATUS "Using BOOST_HOME from environment: $ENV{BOOST_HOME}")
 endif()
 
