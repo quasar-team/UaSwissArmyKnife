@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
-add_definitions(-std=c++11)
+if(NOT MSVC)
+  add_definitions(-std=c++11)
+endif()
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 execute_process(COMMAND git describe --tags OUTPUT_VARIABLE git_describe_output OUTPUT_STRIP_TRAILING_WHITESPACE)
 message("NOTE: git describe returned ${git_describe_output}")
 file(WRITE ${PROJECT_BINARY_DIR}/uasak_version.h "#define UASAK_VERSION \"${git_describe_output}\"")
@@ -16,9 +20,23 @@ list(GET versions_dot_sep 1 CPACK_PACKAGE_VERSION_MINOR)
 list(GET versions_dot_sep 2 CPACK_PACKAGE_VERSION_PATCH)
 
 
+if(MSVC)
+  set(O6_LINK_LIBS open62541-compat LogIt xerces-c)
+else()
+  set(O6_LINK_LIBS -lopen62541-compat -lLogIt -lxerces-c)
+endif()
+
+if(NOT DEFINED XSD_CXX_COMMAND)
+  if(WIN32)
+    set(XSD_CXX_COMMAND xsd)
+  else()
+    set(XSD_CXX_COMMAND xsdcxx)
+  endif()
+endif()
+
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/UANodeSet.cxx ${PROJECT_BINARY_DIR}/UANodeSet.hxx
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMAND xsdcxx cxx-tree --std c++11 --generate-serialization --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet --omit-default-attributes --root-element UANodeSet --output-dir ${PROJECT_BINARY_DIR} nodeset_xsd/UANodeSet.xsd
+        COMMAND ${XSD_CXX_COMMAND} cxx-tree --std c++11 --generate-serialization --namespace-map http://opcfoundation.org/UA/2011/03/UANodeSet.xsd=UANodeSet --omit-default-attributes --root-element UANodeSet --output-dir ${PROJECT_BINARY_DIR} nodeset_xsd/UANodeSet.xsd
         DEPENDS ${PROJECT_SOURCE_DIR}/nodeset_xsd/UANodeSet.xsd
 )
 
@@ -59,7 +77,7 @@ add_executable (uasak_browse_read
 )
 
 target_link_libraries(uasak_browse -lopen62541-compat -lLogIt ${BOOST_LIBS})
-target_link_libraries(uasak_dump -lopen62541-compat -lLogIt -lxerces-c ${BOOST_LIBS})
+target_link_libraries(uasak_dump ${O6_LINK_LIBS} ${BOOST_LIBS})
 target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt ${BOOST_LIBS})
 
 install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
