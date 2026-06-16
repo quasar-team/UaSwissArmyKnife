@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 execute_process(COMMAND git describe --tags OUTPUT_VARIABLE git_describe_output OUTPUT_STRIP_TRAILING_WHITESPACE)
 message("NOTE: git describe returned ${git_describe_output}")
+# A shallow / tagless clone makes `git describe` empty, which would make the
+# list(GET ...) version parsing below fail ("list GET given empty list").
+if(git_describe_output STREQUAL "")
+  set(git_describe_output "0.0.0")
+  message("NOTE: git describe was empty (shallow/tagless clone) -- defaulting version to ${git_describe_output}")
+endif()
 file(WRITE ${PROJECT_BINARY_DIR}/uasak_version.h "#define UASAK_VERSION \"${git_describe_output}\"")
 
 set(CPACK_PACKAGE_NAME "UaSwissArmyKnife" )
