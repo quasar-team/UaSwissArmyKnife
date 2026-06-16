@@ -27,7 +27,10 @@ list(GET versions_dot_sep 2 CPACK_PACKAGE_VERSION_PATCH)
 
 
 if(MSVC)
-  set(O6_LINK_LIBS open62541-compat LogIt xerces-c)
+  # uasak_dump links open62541-compat.lib as a raw file (via link_directories), not
+  # as a CMake target, so compat's INTERFACE winsock deps don't propagate -- add the
+  # ws2_32 / iphlpapi the bundled open62541 networking needs explicitly.
+  set(O6_LINK_LIBS open62541-compat LogIt xerces-c ws2_32 iphlpapi)
 else()
   set(O6_LINK_LIBS -lopen62541-compat -lLogIt -lxerces-c)
 endif()
@@ -69,23 +72,24 @@ link_directories(
 	${Boost_LIBRARY_DIRS}
 )
 
-add_executable (uasak_browse
-	src/uasak_browse.cpp
-	)
-
 add_executable (uasak_dump
 	src/uasak_dump.cpp
 	${PROJECT_BINARY_DIR}/UANodeSet.cxx
 )
-
-add_executable (uasak_browse_read
-	src/uasak_browse_read.cpp
-)
-
-target_link_libraries(uasak_browse -lopen62541-compat -lLogIt ${BOOST_LIBS})
 target_link_libraries(uasak_dump ${O6_LINK_LIBS} ${BOOST_LIBS})
-target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt ${BOOST_LIBS})
+install(TARGETS uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
 
-install(TARGETS uasak_browse uasak_dump RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+# uasak_browse / uasak_browse_read still link with Linux -l flags (only uasak_dump
+# is ported to ${O6_LINK_LIBS} for MSVC), and src/uasak_browse_read.cpp is not in
+# the repo -- so build them off-MSVC, and only when their source exists.
+if(NOT MSVC)
+	add_executable (uasak_browse src/uasak_browse.cpp)
+	target_link_libraries(uasak_browse -lopen62541-compat -lLogIt ${BOOST_LIBS})
+	install(TARGETS uasak_browse RUNTIME DESTINATION "${CPACK_PACKAGING_INSTALL_PREFIX}/bin")
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/uasak_browse_read.cpp)
+		add_executable (uasak_browse_read src/uasak_browse_read.cpp)
+		target_link_libraries(uasak_browse_read -lopen62541-compat -lLogIt ${BOOST_LIBS})
+	endif()
+endif()
 
 include(CPack)
