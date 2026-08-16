@@ -15,13 +15,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    container:
-      image: ghcr.io/${{ github.repository_owner }}/quasar-ci:alma9-o6
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cmake g++ xsdcxx libxerces-c-dev libboost-all-dev libssl-dev libxml2-dev > /dev/null
       - name: Fetch dependencies
         run: |
           git clone -q --depth 1 --branch v1.5.12 https://github.com/quasar-team/open62541-compat.git /tmp/compat
