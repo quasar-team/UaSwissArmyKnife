@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/quasar-ci:alma9-o6
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch dependencies
+        run: |
+          git clone -q --depth 1 --branch v1.5.12 https://github.com/quasar-team/open62541-compat.git /tmp/compat
+          git clone -q --depth 1 https://github.com/quasar-team/LogIt.git /tmp/LogIt
+      - name: Build open62541-compat and LogIt into the deploy prefixes
+        run: |
+          mkdir -p build && cd build
+          cmake -S /tmp/compat -B compat-build -DSTANDALONE_BUILD=ON -DSKIP_TESTS=ON -DSKIP_EXAMPLES=ON -DCMAKE_INSTALL_PREFIX="$PWD/deploy/open62541-compat"
+          cmake --build compat-build -j"$(nproc)"
+          cmake --install compat-build
+          mkdir -p deploy/LogIt/include deploy/LogIt/lib logit-obj
+          cp /tmp/LogIt/include/* deploy/LogIt/include/
+          cd logit-obj
+          for f in /tmp/LogIt/src/*.cpp; do
+            case "$f" in *UaTraceSink*) continue;; esac
+            g++ -c -O2 -fPIC -DLOGIT_BACKEND_STDOUTLOG -I /tmp/LogIt/include "$f"
+          done
+          ar rcs ../deploy/LogIt/lib/libLogIt.a *.o
+      - name: Build uasak_dump
+        run: |
+          cd build
+          cmake ..
+          make -j"$(nproc)" uasak_dump
+          test -x uasak_dump && ls -l uasak_dump
